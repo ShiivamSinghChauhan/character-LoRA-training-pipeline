@@ -197,6 +197,25 @@ def prompts():
     return jsonify(out)
 
 
+@app.get("/api/debug")
+def debug():
+    out = {"insts": [{"idx": i.idx, "gpu": i.gpu, "loaders": i.loaders} for i in INSTS]}
+    for i in INSTS:
+        try:
+            oi = i.j("/object_info")
+            out[f"multigpu_nodes_{i.idx}"] = [k for k in oi if "MultiGPU" in k][:12]
+            out[f"unet_multigpu_inputs_{i.idx}"] = {k: str(v)[:160] for k, v in oi.get("UNETLoaderMultiGPU", {}).get("input", {}).get("required", {}).items()}
+            out[f"clip_multigpu_inputs_{i.idx}"] = {k: str(v)[:160] for k, v in oi.get("CLIPLoaderMultiGPU", {}).get("input", {}).get("required", {}).items()}
+        except Exception as e:
+            out[f"err_{i.idx}"] = repr(e)[:200]
+        try:
+            lines = open(f"/kaggle/temp/comfy_{i.idx}.log", errors="ignore").read().splitlines()
+            out[f"log_{i.idx}"] = [ln for ln in lines if "MultiGPU" in ln or "rror" in ln or "IMPORT" in ln][-15:]
+        except Exception as e:
+            out[f"log_err_{i.idx}"] = repr(e)[:100]
+    return jsonify(out)
+
+
 @app.get("/api/state")
 def state():
     jobs = [JOBS[i] for i in ORDER[:200] if i in JOBS]

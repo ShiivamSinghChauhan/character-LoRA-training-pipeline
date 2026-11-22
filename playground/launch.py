@@ -81,7 +81,17 @@ def fetch(repo, path, sub, gated):
     say("got", sub, os.path.basename(dst))
 
 
-ths = [threading.Thread(target=fetch, args=f) for f in FILES]
+def fetch_retry(*f):
+    for attempt in range(3):
+        try:
+            return fetch(*f)
+        except Exception as e:
+            say("download error", f[1], attempt, repr(e)[:300])
+            time.sleep(10)
+
+
+say("disk:", shutil.disk_usage("/kaggle/temp"), "| HF token present:", bool(HF))
+ths = [threading.Thread(target=fetch_retry, args=f) for f in FILES]
 [t.start() for t in ths]
 [t.join() for t in ths]
 for _, path, sub, _ in FILES:
