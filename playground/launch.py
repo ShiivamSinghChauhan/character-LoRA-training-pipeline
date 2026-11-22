@@ -31,11 +31,17 @@ def sh(cmd, show=False):
     return r.returncode
 
 
+HF = os.environ.get("HF_TOKEN", "")
 try:
     from kaggle_secrets import UserSecretsClient
-    HF = UserSecretsClient().get_secret("HF_TOKEN")
+    for _label in ("HF_WRITE", "HF_TOKEN"):   # HF_WRITE (write token) preferred, HF_TOKEN fallback
+        try:
+            HF = UserSecretsClient().get_secret(_label)
+            break
+        except Exception:
+            pass
 except Exception:
-    HF = os.environ.get("HF_TOKEN", "")
+    pass
 if not HF:
     say("WARNING: no HF_TOKEN secret - the gated Klein 9B download will fail")
 
