@@ -16,7 +16,7 @@ PIPE = "/kaggle/working/pipe"
 BASE = "/kaggle/temp/klein"
 COMFY = BASE + "/ComfyUI"
 PASSWORD = os.environ.get("PG_PASS") or secrets.token_urlsafe(6)
-MODE = os.environ.get("PG_MODE", "split")
+MODE = os.environ.get("PG_MODE", "dual")
 os.makedirs(BASE, exist_ok=True)
 
 

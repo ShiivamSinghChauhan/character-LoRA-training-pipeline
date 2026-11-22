@@ -1,6 +1,6 @@
 """Playground web UI + job queue in front of one or more headless ComfyUI instances (FLUX.2 Klein 9B multi-reference edit).
 
-Env: PG_PASS (required password), PG_MODE=split|dual, COMFY_DIR, PG_IN, PG_OUT, PG_PORT.
+Env: PG_PASS (required password), PG_MODE=dual|split (dual = default, 2 parallel workers), COMFY_DIR, PG_IN, PG_OUT, PG_PORT.
   split: one ComfyUI, UNET on cuda:0, text encoder on cuda:1 (needs ComfyUI-MultiGPU)  -> no model swapping, 1 job at a time
   dual : one ComfyUI per GPU (CUDA_VISIBLE_DEVICES), each pinned to its GPU          -> 2 jobs in parallel, models swap on a 15 GB T4
 """
@@ -13,7 +13,7 @@ import graph  # noqa: E402
 from PIL import Image  # noqa: E402
 
 PASS = os.environ["PG_PASS"]
-MODE = os.environ.get("PG_MODE", "split")
+MODE = os.environ.get("PG_MODE", "dual")
 COMFY = os.environ.get("COMFY_DIR", "/kaggle/temp/klein/ComfyUI")
 IN = os.environ.get("PG_IN", "/kaggle/temp/pg_in")
 OUT = os.environ.get("PG_OUT", "/kaggle/working/pg_out")
