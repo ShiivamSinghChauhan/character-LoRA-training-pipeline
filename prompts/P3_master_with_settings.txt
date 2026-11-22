@@ -1,0 +1,3 @@
+LOCKED PROMPT (P3) - Flux2-Klein-9B + Consistency V2 LoRA strength 0.8, ~1MP, 8 steps, input = RAW uncropped frames (not pre-enhanced)
+
+Restore and enhance this photo of the same person. Sharpen details and improve clarity. Keep the exact same face, identity, expression, pose, colors and clothing. Do not change her body shape, proportions, height, muscle definition or hair length. Preserve the natural fine skin texture and subtle details of the original, without adding marks, dark spots, blotches, freckles or discoloration, and without airbrushing. Remove the background and replace it with a plain, seamless, solid light grey studio background, with soft even lighting on the person and clean natural hair edges.

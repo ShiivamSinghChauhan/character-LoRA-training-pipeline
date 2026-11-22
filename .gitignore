@@ -1,0 +1,6 @@
+profile*/
+__pycache__/
+*.pyc
+*.safetensors
+.env
+*.token

@@ -1,0 +1,118 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Klein playground</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px system-ui, sans-serif; background: #15171b; color: #e6e6e6; display: flex; height: 100vh; }
+  #left { width: 380px; min-width: 380px; padding: 12px; overflow-y: auto; border-right: 1px solid #2b2e35; }
+  #right { flex: 1; padding: 12px; overflow-y: auto; }
+  h3 { margin: 4px 0 8px; font-size: 13px; color: #9aa; text-transform: uppercase; letter-spacing: .05em; }
+  .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .slot { height: 150px; border: 1px dashed #4a4f5a; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+          position: relative; cursor: pointer; background: #1c1f24; overflow: hidden; color: #789; text-align: center; font-size: 12px; }
+  .slot img { max-width: 100%; max-height: 100%; }
+  .slot b { position: absolute; left: 6px; top: 4px; background: #000a; padding: 1px 6px; border-radius: 4px; color: #fff; }
+  .slot i { position: absolute; right: 6px; top: 4px; background: #000a; padding: 0 6px; border-radius: 4px; font-style: normal; }
+  textarea { width: 100%; height: 150px; background: #1c1f24; color: #eee; border: 1px solid #343842; border-radius: 6px; padding: 8px; resize: vertical; }
+  select, input[type=number] { background: #1c1f24; color: #eee; border: 1px solid #343842; border-radius: 6px; padding: 5px; width: 100%; }
+  label { display: block; font-size: 12px; color: #9aa; margin: 8px 0 2px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  button { background: #3b6df0; border: 0; color: #fff; padding: 9px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button.s { background: #2b2e35; padding: 3px 8px; font-size: 12px; }
+  button:disabled { opacity: .5; }
+  #go { width: 100%; margin-top: 12px; font-weight: 600; }
+  #wk { font-size: 12px; color: #9aa; margin: 6px 0; }
+  .job { background: #1c1f24; border: 1px solid #2b2e35; border-radius: 8px; padding: 8px; margin-bottom: 10px; }
+  .imgs { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; }
+  .imgs img.in { height: 90px; border-radius: 4px; opacity: .85; }
+  .imgs img.out { max-height: 520px; max-width: 100%; border-radius: 6px; cursor: zoom-in; }
+  .meta { font-size: 12px; color: #9aa; margin: 6px 0; white-space: pre-wrap; }
+  .st-error { color: #f66; } .st-running { color: #fc4; } .st-queued { color: #8af; } .st-done { color: #6c6; }
+</style>
+<div id="left">
+  <h3>Input images (order = reference order)</h3>
+  <div class="slots" id="slots"></div>
+  <div style="font-size:11px;color:#789;margin-top:4px">Click, drop or paste (Ctrl+V). Empty slots are ignored.</div>
+  <h3 style="margin-top:14px">Prompt</h3>
+  <select id="preset"><option value="">presets...</option></select>
+  <textarea id="prompt" placeholder="Describe the edit. Refer to the references as 'image 1', 'image 2'..."></textarea>
+  <div class="row">
+    <div><label>Seed</label><input type="number" id="seed" value="123"></div>
+    <div><label>Copies (seed+0, +1, ...)</label><input type="number" id="count" value="1" min="1" max="8"></div>
+    <div><label>Steps</label><input type="number" id="steps" value="8" min="1" max="40"></div>
+    <div><label>Reference MP (per image)</label><input type="number" id="ref_mp" value="1.0" step="0.1" min="0.2" max="2"></div>
+    <div><label>Output size from</label><select id="size_from"><option value="0">image 1</option><option value="1">image 2</option><option value="2">image 3</option><option value="3">image 4</option><option value="c">custom</option></select></div>
+    <div><label>Output MP</label><input type="number" id="out_mp" value="1.0" step="0.1" min="0.2" max="2.5"></div>
+    <div><label>Custom W</label><input type="number" id="width" value="768" step="16"></div>
+    <div><label>Custom H</label><input type="number" id="height" value="1024" step="16"></div>
+    <div><label>Consistency LoRA</label><select id="lora"><option value="1">on</option><option value="0">off</option></select></div>
+    <div><label>LoRA strength</label><input type="number" id="lora_strength" value="0.8" step="0.1" min="0" max="2"></div>
+  </div>
+  <button id="go">Generate</button>
+  <div id="wk"></div>
+</div>
+<div id="right"><div id="jobs"></div></div>
+<input type="file" id="pick" accept="image/*" hidden>
+<script>
+const N = 4, slots = Array(N).fill(null);   // {file} or {reuse}
+const $ = id => document.getElementById(id);
+let target = 0;
+function drawSlots() {
+  $('slots').innerHTML = '';
+  for (let i = 0; i < N; i++) {
+    const d = document.createElement('div'); d.className = 'slot';
+    const s = slots[i];
+    d.innerHTML = `<b>${i + 1}</b>` + (s ? `<img src="${s.url}"><i onclick="event.stopPropagation();slots[${i}]=null;drawSlots()">x</i>` : 'drop / click / paste');
+    d.onclick = () => { target = i; $('pick').click(); };
+    d.ondragover = e => e.preventDefault();
+    d.ondrop = e => { e.preventDefault(); setFile(i, e.dataTransfer.files[0]); };
+    $('slots').appendChild(d);
+  }
+}
+function setFile(i, f) { if (!f) return; slots[i] = { file: f, url: URL.createObjectURL(f) }; drawSlots(); }
+$('pick').onchange = e => { setFile(target, e.target.files[0]); e.target.value = ''; };
+document.onpaste = e => { const f = [...e.clipboardData.files][0]; if (f) { const i = slots.findIndex(x => !x); setFile(i < 0 ? 0 : i, f); } };
+function useAsInput(file) { let i = slots.findIndex(x => !x); if (i < 0) i = 0; slots[i] = { reuse: file, url: '/files/' + file }; drawSlots(); }
+drawSlots();
+
+fetch('/api/prompts').then(r => r.json()).then(p => { for (const k in p) { const o = document.createElement('option'); o.value = p[k]; o.textContent = k; $('preset').appendChild(o); } });
+$('preset').onchange = () => { if ($('preset').value) $('prompt').value = $('preset').value; $('preset').selectedIndex = 0; save(); };
+const KEYS = ['prompt', 'seed', 'count', 'steps', 'ref_mp', 'size_from', 'out_mp', 'width', 'height', 'lora', 'lora_strength'];
+function save() { const o = {}; KEYS.forEach(k => o[k] = $(k).value); localStorage.pg = JSON.stringify(o); }
+try { const o = JSON.parse(localStorage.pg || '{}'); KEYS.forEach(k => { if (o[k] !== undefined) $(k).value = o[k]; }); } catch (e) {}
+KEYS.forEach(k => $(k).onchange = $(k).oninput = save);
+
+$('go').onclick = async () => {
+  const fd = new FormData(); const reuse = {}; let n = 0;
+  const idx = [];
+  slots.forEach((s, i) => { if (s) idx.push(i); });
+  if (!idx.length) return alert('add at least one image');
+  idx.forEach((i, k) => { const s = slots[i]; if (s.file) fd.append('img' + k, s.file); else reuse[k] = s.reuse; n++; });
+  const custom = $('size_from').value === 'c';
+  const p = { n_images: n, reuse, prompt: $('prompt').value, seed: +$('seed').value, count: +$('count').value, steps: +$('steps').value,
+              ref_mp: +$('ref_mp').value, size_from: custom ? 0 : +$('size_from').value, custom_size: custom, out_mp: +$('out_mp').value,
+              width: +$('width').value, height: +$('height').value, lora: $('lora').value === '1', lora_strength: +$('lora_strength').value };
+  fd.append('params', JSON.stringify(p));
+  $('go').disabled = true;
+  try { const r = await fetch('/api/submit', { method: 'POST', body: fd }); if (!r.ok) alert(await r.text()); } finally { $('go').disabled = false; }
+  $('seed').value = +$('seed').value + p.count; save(); poll();
+};
+
+async function act(path) { await fetch(path, { method: 'POST' }); poll(); }
+async function poll() {
+  const r = await fetch('/api/state'); if (!r.ok) return; const s = await r.json();
+  $('wk').textContent = `mode: ${s.mode} | workers: ` + s.workers.map(w => `#${w.idx}${w.split ? ' (split GPU)' : ''} ${w.busy ? 'busy' : 'idle'}`).join(', ') + ` | queued: ${s.queued}`;
+  $('jobs').innerHTML = s.jobs.map(j => {
+    const p = j.params, ins = j.inputs.map(f => `<img class="in" src="/in/${f}">`).join('');
+    const out = j.file ? `<img class="out" src="/files/${j.file}" onclick="window.open('/files/${j.file}')">` : '';
+    const t = j.secs ? ` | ${j.secs}s on worker #${j.gpu}` : (j.status === 'running' ? ' | running...' : '');
+    const btn = j.status === 'queued' ? `<button class="s" onclick="act('/api/cancel/${j.id}')">cancel</button>` :
+      (j.file ? `<button class="s" onclick="useAsInput('${j.file}')">use as input</button> <a href="/files/${j.file}" download><button class="s">download</button></a> ` : '') +
+      `<button class="s" onclick="act('/api/delete/${j.id}')">delete</button>`;
+    return `<div class="job"><div class="imgs">${out}</div><div class="meta"><span class="st-${j.status}">${j.status}</span>${t}\nseed ${p.seed} | ${p.width}x${p.height} | steps ${p.steps} | refs ${j.inputs.length} @${p.ref_mp}MP | lora ${p.lora ? p.lora_strength : 'off'}\n${p.prompt.slice(0, 220).replace(/</g, '&lt;')}${j.error ? '\n' + j.error.replace(/</g, '&lt;') : ''}</div>${btn}</div>`;
+  }).join('');
+}
+setInterval(poll, 2500); poll();
+</script>
