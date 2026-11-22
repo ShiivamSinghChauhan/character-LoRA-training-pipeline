@@ -20,6 +20,10 @@ MODE = os.environ.get("PG_MODE", "split")
 os.makedirs(BASE, exist_ok=True)
 
 
+# re-run safety: stop leftovers of a previous launch (app, ComfyUI, tunnel) before starting again
+os.system("pkill -f playground/app.py; pkill -f 'main.py --listen'; pkill -f cloudflared; pkill -f localhost.run; sleep 2")
+
+
 def say(*a):
     print(time.strftime("%H:%M:%S"), *a, flush=True)
 

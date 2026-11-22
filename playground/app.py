@@ -65,7 +65,8 @@ class Inst:
             for kind, cls, dev in (("unet", "UNETLoaderMultiGPU", "cuda:0"), ("clip", "CLIPLoaderMultiGPU", "cuda:1")):
                 if cls not in oi:
                     return None
-                req = oi[cls]["input"]["required"]
+                inp = oi[cls]["input"]
+                req = dict(inp.get("required", {}), **inp.get("optional", {}))   # device is an *optional* input in ComfyUI-MultiGPU
                 key = next((k for k in ("device", "compute_device") if k in req), None)
                 if key is None or dev not in req[key][0]:
                     return None
@@ -204,8 +205,8 @@ def debug():
         try:
             oi = i.j("/object_info")
             out[f"multigpu_nodes_{i.idx}"] = [k for k in oi if "MultiGPU" in k][:12]
-            out[f"unet_multigpu_inputs_{i.idx}"] = {k: str(v)[:160] for k, v in oi.get("UNETLoaderMultiGPU", {}).get("input", {}).get("required", {}).items()}
-            out[f"clip_multigpu_inputs_{i.idx}"] = {k: str(v)[:160] for k, v in oi.get("CLIPLoaderMultiGPU", {}).get("input", {}).get("required", {}).items()}
+            out[f"unet_multigpu_inputs_{i.idx}"] = {k: str(v)[:160] for k, v in dict(oi.get("UNETLoaderMultiGPU", {}).get("input", {}).get("required", {}), **oi.get("UNETLoaderMultiGPU", {}).get("input", {}).get("optional", {})).items()}
+            out[f"clip_multigpu_inputs_{i.idx}"] = {k: str(v)[:160] for k, v in dict(oi.get("CLIPLoaderMultiGPU", {}).get("input", {}).get("required", {}), **oi.get("CLIPLoaderMultiGPU", {}).get("input", {}).get("optional", {})).items()}
         except Exception as e:
             out[f"err_{i.idx}"] = repr(e)[:200]
         try:
